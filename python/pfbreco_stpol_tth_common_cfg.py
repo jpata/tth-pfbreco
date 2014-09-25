@@ -12,7 +12,7 @@ import FWCore.ParameterSet.Config as cms
 from PhysicsTools.PatAlgos.tools.coreTools import *
 from PhysicsTools.PatAlgos.tools.pfTools import *
 
-from UserCode.TTHPAT.eventCounting import *
+from eventCounting import *
 
 from PhysicsTools.PatAlgos.selectionLayer1.jetSelector_cfi import *
 
@@ -54,7 +54,7 @@ if len(options.inputFiles)==0:
         options.inputFiles = cms.untracked.vstring(['/store/relval/CMSSW_5_3_6-START53_V14/RelValProdTTbar/AODSIM/v2/00000/76ED0FA6-1E2A-E211-B8F1-001A92971B72.root'])
 
 
-process = cms.Process("NICPBSTEP1")
+process = cms.Process("PAT")
 process.load("Configuration.Geometry.GeometryIdeal_cff")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 process.load("Configuration.StandardSequences.MagneticField_cff")
@@ -144,7 +144,7 @@ process.goodOfflinePrimaryVertices = cms.EDFilter(
 , src = cms.InputTag('offlinePrimaryVertices')
 )
 
-from UserCode.TTHPAT.EventFilters_cff import ApplyEventFilters
+from EventFilters_cff import ApplyEventFilters
 ApplyEventFilters(process, runOnFastSim=options.runOnFastSim)
 #-------------------------------------------------
 # Muons
@@ -211,12 +211,6 @@ process.muonSequence += (
 # Implemented as in https://indico.cern.ch/getFile.py/access?contribId=1&resId=0&materialId=slides&confId=208765
 #-------------------------------------------------
 
-#if not maxLeptonIso is None:
-#        process.pfIsolatedElectrons.isolationCut = maxLeptonIso
-#Use both isolated and un-isolated electrons as patElectrons.
-#NB: no need to change process.electronMatch.src to pfElectrons,
-#        it's already gsfElectrons, which is a superset of the pfElectrons
-
 #From EgammaAnalysis/ElectronTools/test/patTuple_electronId_cfg.py
 process.load('EgammaAnalysis.ElectronTools.electronIdMVAProducer_cfi')
 process.load('EgammaAnalysis.ElectronTools.electronIsolatorFromEffectiveArea_cfi')
@@ -227,8 +221,6 @@ process.patElectrons.electronIDSources = cms.PSet(
     mvaTrigNoIPV0 = cms.InputTag("mvaTrigNoIPV0"),
 )
 process.patPF2PATSequence.replace(process.patElectrons, process.mvaID * process.patElectrons)
-#process.selectedPatElectrons.cut = "pt>20 && abs(eta)<3.0"
-process.pfIsolatedElectrons.isolationCut = 0.2
 
 process.electronsWithID = cms.EDProducer(
     'ElectronIDProducer',
@@ -264,6 +256,7 @@ process.elPFIsoValueEA03 = cms.EDFilter('ElectronIsolatorFromEffectiveArea',
     rhoIso = cms.InputTag('kt6PFJets', 'rho'),
     EffectiveAreaType = cms.string('kEleGammaAndNeutralHadronIso03'),
     EffectiveAreaTarget = cms.string('kEleEAData2012'))
+
 process.patPF2PATSequence.replace(
     process.pfIsolatedElectrons,
     process.elPFIsoValueEA03 * process.pfIsolatedElectrons
@@ -759,12 +752,21 @@ process.out.outputCommands = cms.untracked.vstring([
     #'keep recoBeamSpot_offlineBeamSpot__*',
     #'keep recoMuons_muons__*',
 
-    'keep int_*__PAT',
-    'keep ints_*__PAT',
-    'keep double_*__PAT',
-    'keep doubles_*__PAT',
-    'keep float_*__PAT',
-    'keep floats_*__PAT',
+    'keep int_*__*',
+    'keep ints_*__*',
+    'keep double_*__*',
+    'keep doubles_*__*',
+    'keep float_*__*',
+    'keep floats_*__*',
+
+    #drop unneeded jets
+    'drop patJets_patJets__*',
+    'drop patJets_selectedPatJets__*',
+    'drop patJets_patJetsWithOwnRefNotOverlappingWithLeptonsForMEtUncertainty__*',
+    'drop patJets_shiftedPatJetsWithOwnRefEnDownForCorrMEt__*',
+    'drop patJets_shiftedPatJetsWithOwnRefEnUpForCorrMEt__*',
+    'drop patJets_shiftedPatJetsWithOwnRefEnDownForRawMEt__*',
+    'drop patJets_shiftedPatJetsWithOwnRefEnUpForRawMEt__*',
 ])
 
 process.out.SelectEvents = cms.untracked.PSet(
@@ -854,3 +856,5 @@ countProcessed(process)
 
 #count events passing mu and ele paths
 countInSequence(process, process.step1Path)
+
+process.outpath = cms.EndPath(process.out)
